@@ -23,7 +23,6 @@
 #include <LSM9DS1_Types.h>
 #include <SoftwareSerial.h>
 
-
 //#define ADAddr 0x48//
 
 #define LSM9DS1_M  0x1E                 // SPIアドレス設定 0x1C if SDO_M is LOW
@@ -40,11 +39,12 @@
 //=== Global for GPS ===========================================
 SoftwareSerial  g_gps( RX, TX );
 char head[] = "$GPRMC";
-char info[] = "$GPGGA";
 char buf[10];
 int SentencesNum = 0;                   // GPSのセンテンス文字列個数
 byte SentencesData[SENTENCES_BUFLEN] ;  // GPSのセンテンスデータバッファ
+char datetime_org[6];
 String datetime = "";
+String date = "";
 //======================================================
 
 //-------------------------------------------------------------------------
@@ -82,6 +82,7 @@ void setup(void) {
 
   // Open serial communications and wait for port to open:
   Serial.begin(9600);
+  g_gps.begin(9600);
 
   //=== SD Card Initialize ====================================
   Serial.print(F("Initializing SD card..."));
@@ -112,6 +113,8 @@ void setup(void) {
 
   motionData = "";
 
+  //GPSより日付日時の取得
+  getGpsData();
 
   //SDカードのオープンとファイル名の取得
   sdcardOpen();
@@ -129,51 +132,11 @@ void setup(void) {
 void loop(void) {
 
 
-  if(!is_getdate){
-
-    //GPS MAIN ==========================================================
-    char c = 0 ;
-  
-      // センテンスデータが有るなら処理を行う
-      if (g_gps.available()) {
-
-          Serial.println("piyo");
-  
-          // 1バイト読み出す
-          c = g_gps.read() ;
-          Serial.write(c);//Debug ALL
-  
-          // センテンスの開始
-          if (c == '$') SentencesNum = 0 ;
-          
-          if (SentencesNum >= 0) {
-            
-            // センテンスをバッファに溜める
-            SentencesData[SentencesNum] = c ;
-            SentencesNum++ ;
-               
-            // センテンスの最後(LF=0x0Aで判断)
-            if (c == 0x0a || SentencesNum >= SENTENCES_BUFLEN) {
-      
-              SentencesData[SentencesNum] = '\0';
-
-              Serial.print( (char *)SentencesData );
-
-              //GPS情報の取得
-              getGpsInfo();
-            }
-          }
-        }
-    //GPS MAIN ==========================================================
-  }
-
   //データの取得
-  //pushMotionData();
+  pushMotionData();
 
   //SDカードへの出力
-  //writeDataToSdcard();
-  Serial.println("hoge");
-  Serial.println(datetime);
+  writeDataToSdcard();
 
   digitalWrite(13, 1);
 
@@ -194,29 +157,18 @@ void sdcardOpen()
   int fileNum = 0;
   
   while(1){
-    s = "LOG";
-    if (fileNum < 10) {
+    s = datetime;
+    /*if (fileNum < 10) {
       s += "00";
     } else if(fileNum < 100) {
       s += "0";
     }
-    s += fileNum;
+    s += fileNum;*/
     s += ".TXT";
     s.toCharArray(fileName, 16);
     if(!SD.exists(fileName)) break;
     fileNum++;
   }
-
-}
-
-/**
- * sdcardClose
- */
-void sdcardClose()
-{
-    dataFile.close();
-    Serial.println(F("SD Closed."));
-    sdOpened = false;
 
 }
 
@@ -330,6 +282,43 @@ void pushMotionData()
  */
 void getGpsData(void) {
 
+  while(1){
+      //GPS MAIN ==========================================================
+      char c = 0 ;
+    
+        // センテンスデータが有るなら処理を行う
+        if (g_gps.available()) {
+    
+            // 1バイト読み出す
+            c = g_gps.read() ;
+            Serial.write(c);//Debug ALL
+    
+            // センテンスの開始
+            if (c == '$') SentencesNum = 0 ;
+            
+            if (SentencesNum >= 0) {
+              
+              // センテンスをバッファに溜める
+              SentencesData[SentencesNum] = c ;
+              SentencesNum++ ;
+                 
+              // センテンスの最後(LF=0x0Aで判断)
+              if (c == 0x0a || SentencesNum >= SENTENCES_BUFLEN) {
+        
+                SentencesData[SentencesNum] = '\0';
+  
+                Serial.print( (char *)SentencesData );
+  
+                //GPS情報の取得
+                getGpsInfo();
+
+                if(is_getdate)
+                  return;
+              }
+            }
+          }
+      //GPS MAIN ==========================================================
+  }
 
 }
 
@@ -342,7 +331,7 @@ void getGpsInfo()
     int i, c;
     
     //$1ヘッダが一致
-    if( strncmp((char *)SentencesData, info, 6) == 0 )
+    if( strncmp((char *)SentencesData, head, 6) == 0 )
     {
 
       //コンマカウント初期化
@@ -354,13 +343,16 @@ void getGpsInfo()
           
             c++ ; // 区切り文字を数える
     
-            if ( c == 2 ) {
-                 //Serial.println(F("----------------------------"));
-                // Serial.println((char *)SentencesData);
-                 Serial.print(F("Time:"));
-                 datetime = readDataUntilComma(i+1);
+            if ( c == 2 ) {;
+                 strncpy(datetime_org, readDataUntilComma(i+1), 6);
+                 datetime = datetime_org;
                  Serial.println(datetime);
-                 //is_getdate = true;
+                 continue;
+            }
+            else if ( c == 10 ) {
+                 date = readDataUntilComma(i+1);
+                 Serial.println(date);
+                 is_getdate = true;
                  return;
             }
         }
