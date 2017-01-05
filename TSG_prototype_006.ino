@@ -164,7 +164,7 @@ void sdcardOpen()
       s += "0";
     }
     s += fileNum;*/
-    s += ".TXT";
+    s += ".csv";
     s.toCharArray(fileName, 16);
     if(!SD.exists(fileName)) break;
     fileNum++;
