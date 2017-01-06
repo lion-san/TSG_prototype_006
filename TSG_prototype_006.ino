@@ -45,6 +45,7 @@ byte SentencesData[SENTENCES_BUFLEN] ;  // GPSのセンテンスデータバッ�
 char datetime_org[6];
 String datetime = "";
 String date = "";
+boolean is_getdate = false;
 //======================================================
 
 //-------------------------------------------------------------------------
@@ -63,7 +64,7 @@ boolean sdOpened = false;
 //###############################################
 
 const int tact_switch = 7;//タクトスイッチ
-boolean is_getdate = false;
+
 
 char fileName[16];
 
