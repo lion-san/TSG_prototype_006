@@ -116,6 +116,9 @@ void setup(void) {
   //GPSより日付日時の取得
   getGpsData();
 
+  //日付取得完了したら、クローズ
+  g_gps.end();
+
   //SDカードのオープンとファイル名の取得
   sdcardOpen();
 
@@ -312,8 +315,9 @@ void getGpsData(void) {
                 //GPS情報の取得
                 getGpsInfo();
 
-                if(is_getdate)
+                if(is_getdate){
                   return;
+                }
               }
             }
           }
