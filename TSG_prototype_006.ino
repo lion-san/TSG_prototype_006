@@ -9,6 +9,7 @@
 //　　　　SDA       ------        SDA
 //
 //　GPSで日時取得しファイル名とする
+//  電源ONで記録開始
 //  その後9軸センサーデータを記録する
 //
 //　　　　
@@ -63,15 +64,11 @@ File dataFile;                          //SD CARD
 boolean sdOpened = false;
 //###############################################
 
-const int tact_switch = 7;//タクトスイッチ
-
 
 char fileName[16];
 
 volatile boolean enableWrite = false;
 
-///////////////////////カルマンフィルタ/////////////////////////////
-String motionData;
 volatile unsigned long time;
 
 ////////////////////////////////////////////////////////////////
@@ -112,8 +109,6 @@ void setup(void) {
   }
   //=======================================================
 
-  motionData = "";
-
   //GPSより日付日時の取得
   getGpsData();
 
@@ -135,9 +130,6 @@ void setup(void) {
  */
 void loop(void) {
 
-
-  //データの取得
-  pushMotionData();
 
   //SDカードへの出力
   writeDataToSdcard();
@@ -184,6 +176,9 @@ void sdcardOpen()
 void writeDataToSdcard()
 {
 
+  updateMotionSensors();
+          
+
   //file open
   dataFile = SD.open(fileName, FILE_WRITE);
 
@@ -192,19 +187,48 @@ void writeDataToSdcard()
   if (dataFile) {
 
     sdOpened = true;
-    
-    dataFile.print(motionData);
 
+
+    //===記録======================
+    //時間の更新
+    dataFile.print(millis() - time);
+    time = millis();
+    dataFile.print(",");
+
+
+    //[g]
+    dataFile.print(imu.calcAccel(imu.ax));
+    dataFile.print(",");
+    dataFile.print(imu.calcAccel(imu.ay));
+    dataFile.print(",");
+    dataFile.print(imu.calcAccel(imu.az));
+    dataFile.print(",");
+
+    //[deg/s]
+    dataFile.print(imu.calcGyro(imu.gx));
+    dataFile.print(",");
+    dataFile.print(imu.calcGyro(imu.gy));
+    dataFile.print(",");
+    dataFile.print(imu.calcGyro(imu.gz));
+    dataFile.print(",");
+
+    //[gauss]
+    dataFile.print(imu.calcMag(imu.mx));
+    dataFile.print(",");
+    dataFile.print(imu.calcMag(imu.my));
+    dataFile.print(",");
+    dataFile.print(imu.calcMag(imu.mz));
+  
+  
+    dataFile.print("\n");
+    //=============================
     dataFile.close();
     
-    Serial.println(motionData);
 
     //file close
     dataFile.close();
     //sdOpened = false;
 
-    //クリア
-    motionData = "";;
   }
   // if the file isn't open, pop up an error:
   else {
@@ -224,57 +248,6 @@ void updateMotionSensors()
   imu.readGyro();
   imu.readAccel();
   imu.readMag();    
-}
-
-
-/**
- * pushMotionSensor
- * 
- *  * @enableWrite    GPS受信 "A"
- */
-void pushMotionData()
-{
-
-
-      //時間の更新
-      double dt = (double)(millis() - time); // Calculate delta time  
-      time = millis();
-
-      updateMotionSensors();
-          
-      //motionData += "$MOTION"; 
-      //motionData += ",";
-    
-      motionData += dt; 
-      motionData += ",";
-    
-
-      //[g]
-      motionData += imu.calcAccel(imu.ax);
-      motionData += ",";
-      motionData += imu.calcAccel(imu.ay);
-      motionData += ",";
-      motionData += imu.calcAccel(imu.az);
-      motionData += ",";
-
-      //[deg/s]
-      motionData += imu.calcGyro(imu.gx);
-      motionData += ",";
-      motionData += imu.calcGyro(imu.gy);
-      motionData += ",";
-      motionData += imu.calcGyro(imu.gz);
-      motionData += ",";
-
-      //[gauss]
-      motionData += imu.calcMag(imu.mx);
-      motionData += ",";
-      motionData += imu.calcMag(imu.my);
-      motionData += ",";
-      motionData += imu.calcMag(imu.mz);
-    
-    
-      motionData += "\n";
-
 }
 
 
